@@ -2,15 +2,8 @@ import streamlit as st
 import numpy as np
 from PIL import Image
 from pathlib import Path
-from tensorflow.keras.models import Sequential, load_model
-from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
-from tensorflow.keras.datasets import fashion_mnist, mnist
 
-st.set_page_config(
-    page_title="Clasificador Inteligente",
-    page_icon="👗",
-    layout="centered"
-)
+st.set_page_config(page_title="Clasificador Inteligente", page_icon="👗")
 
 st.title("🧠 Sistema Inteligente de Clasificación")
 
@@ -31,16 +24,22 @@ MNIST_CLASS_NAMES = [str(i) for i in range(10)]
 
 
 @st.cache_resource
-def get_fashion_model():
-    model_path = Path("fashion_model.keras")
-    if model_path.exists():
-        return load_model(model_path)
+def get_models():
+    from tensorflow.keras.models import Sequential, load_model
+    from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
+    from tensorflow.keras.datasets import fashion_mnist, mnist
     
-    (x_train, y_train), (x_test, y_test) = fashion_mnist.load_data()
-    x_train = x_train.astype("float32") / 255.0
-    x_train = np.expand_dims(x_train, -1)
+    fashion_path = Path("fashion_model.keras")
+    mnist_path = Path("mnist_model.keras")
     
-    model = Sequential([
+    if fashion_path.exists() and mnist_path.exists():
+        return load_model(fashion_path), load_model(mnist_path)
+    
+    (x_train_f, y_train_f), (_, _) = fashion_mnist.load_data()
+    x_train_f = x_train_f.astype("float32") / 255.0
+    x_train_f = np.expand_dims(x_train_f, -1)
+    
+    fashion_model = Sequential([
         Conv2D(32, (3, 3), activation="relu", input_shape=(28, 28, 1)),
         MaxPooling2D((2, 2)),
         Conv2D(64, (3, 3), activation="relu"),
@@ -50,24 +49,15 @@ def get_fashion_model():
         Dropout(0.3),
         Dense(10, activation="softmax")
     ])
+    fashion_model.compile(optimizer="adam", loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+    fashion_model.fit(x_train_f, y_train_f, epochs=3, batch_size=64, verbose=0)
+    fashion_model.save(fashion_path)
     
-    model.compile(optimizer="adam", loss="sparse_categorical_crossentropy", metrics=["accuracy"])
-    model.fit(x_train, y_train, epochs=5, batch_size=32, validation_split=0.1, verbose=0)
-    model.save(model_path)
-    return model
-
-
-@st.cache_resource
-def get_mnist_model():
-    model_path = Path("mnist_model.keras")
-    if model_path.exists():
-        return load_model(model_path)
+    (x_train_m, y_train_m), (_, _) = mnist.load_data()
+    x_train_m = x_train_m.astype("float32") / 255.0
+    x_train_m = np.expand_dims(x_train_m, -1)
     
-    (x_train, y_train), (x_test, y_test) = mnist.load_data()
-    x_train = x_train.astype("float32") / 255.0
-    x_train = np.expand_dims(x_train, -1)
-    
-    model = Sequential([
+    mnist_model = Sequential([
         Conv2D(32, (3, 3), activation="relu", input_shape=(28, 28, 1)),
         MaxPooling2D((2, 2)),
         Conv2D(64, (3, 3), activation="relu"),
@@ -77,11 +67,11 @@ def get_mnist_model():
         Dropout(0.3),
         Dense(10, activation="softmax")
     ])
+    mnist_model.compile(optimizer="adam", loss="sparse_categorical_crossentropy", metrics=["accuracy"])
+    mnist_model.fit(x_train_m, y_train_m, epochs=3, batch_size=64, verbose=0)
+    mnist_model.save(mnist_path)
     
-    model.compile(optimizer="adam", loss="sparse_categorical_crossentropy", metrics=["accuracy"])
-    model.fit(x_train, y_train, epochs=5, batch_size=32, validation_split=0.1, verbose=0)
-    model.save(model_path)
-    return model
+    return fashion_model, mnist_model
 
 
 def preprocess_img(image, invert=True):
@@ -95,7 +85,6 @@ def preprocess_img(image, invert=True):
 
 
 option = st.radio("¿Qué quieres clasificar?", ["👗 Ropa (Fashion MNIST)", "🔢 Números (MNIST)"])
-
 uploaded_file = st.file_uploader("Sube tu imagen", type=["png", "jpg", "jpeg", "bmp"])
 
 if uploaded_file is not None:
@@ -103,14 +92,16 @@ if uploaded_file is not None:
     st.image(image, caption="Imagen cargada", width=200)
     
     if st.button("Predecir"):
-        with st.spinner("Clasificando..."):
+        with st.spinner("Cargando modelos y clasificando..."):
             try:
+                fashion_model, mnist_model = get_models()
+                
                 if "Ropa" in option:
-                    model = get_fashion_model()
+                    model = fashion_model
                     class_names = FASHION_CLASS_NAMES
                     img_arr = preprocess_img(image, invert=True)
                 else:
-                    model = get_mnist_model()
+                    model = mnist_model
                     class_names = MNIST_CLASS_NAMES
                     img_arr = preprocess_img(image, invert=False)
                 

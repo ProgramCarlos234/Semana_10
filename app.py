@@ -5,48 +5,14 @@ from pathlib import Path
 from tensorflow.keras.models import Sequential, load_model
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
 from tensorflow.keras.datasets import fashion_mnist, mnist
-from tensorflow.keras.utils import to_categorical
 
 st.set_page_config(
     page_title="Clasificador Inteligente",
     page_icon="👗",
-    layout="wide",
-    initial_sidebar_state="collapsed"
+    layout="centered"
 )
 
-st.markdown("""
-    <style>
-        .stApp {
-            background-color: #1a365d !important;
-        }
-        .css-18e3th9 {
-            background-color: #1a365d !important;
-        }
-        .css-1d391kg {
-            background-color: #1a365d !important;
-        }
-        .stMarkdown, .stMarkdown p, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, 
-        .stMarkdown h4, .stMarkdown h5, .stMarkdown h6,
-        .stFileUploader label, .stProgress, .stSuccess, .stInfo, .stError, .stWarning {
-            color: white !important;
-        }
-        .stButton>button {
-            background-color: #4CAF50;
-            color: white !important;
-            font-size: 18px;
-            padding: 10px 24px;
-            border-radius: 8px;
-        }
-        .stButton>button:hover {
-            background-color: #45a049;
-            color: white !important;
-        }
-    </style>
-""", unsafe_allow_html=True)
-
 st.title("🧠 Sistema Inteligente de Clasificación")
-
-tab1, tab2 = st.tabs(["👗 Ropa (Fashion MNIST)", "🔢 Números (MNIST)"])
 
 FASHION_CLASS_NAMES = [
     "Camiseta/top",
@@ -64,18 +30,15 @@ FASHION_CLASS_NAMES = [
 MNIST_CLASS_NAMES = [str(i) for i in range(10)]
 
 
-def load_or_train_fashion_model():
-    """Cargar o entrenar modelo de Fashion MNIST."""
+@st.cache_resource
+def get_fashion_model():
     model_path = Path("fashion_model.keras")
-    
     if model_path.exists():
         return load_model(model_path)
     
     (x_train, y_train), (x_test, y_test) = fashion_mnist.load_data()
     x_train = x_train.astype("float32") / 255.0
-    x_test = x_test.astype("float32") / 255.0
     x_train = np.expand_dims(x_train, -1)
-    x_test = np.expand_dims(x_test, -1)
     
     model = Sequential([
         Conv2D(32, (3, 3), activation="relu", input_shape=(28, 28, 1)),
@@ -88,30 +51,21 @@ def load_or_train_fashion_model():
         Dense(10, activation="softmax")
     ])
     
-    model.compile(
-        optimizer="adam",
-        loss="sparse_categorical_crossentropy",
-        metrics=["accuracy"]
-    )
-    
+    model.compile(optimizer="adam", loss="sparse_categorical_crossentropy", metrics=["accuracy"])
     model.fit(x_train, y_train, epochs=5, batch_size=32, validation_split=0.1, verbose=0)
     model.save(model_path)
-    
     return model
 
 
-def load_or_train_mnist_model():
-    """Cargar o entrenar modelo de MNIST."""
+@st.cache_resource
+def get_mnist_model():
     model_path = Path("mnist_model.keras")
-    
     if model_path.exists():
         return load_model(model_path)
     
     (x_train, y_train), (x_test, y_test) = mnist.load_data()
     x_train = x_train.astype("float32") / 255.0
-    x_test = x_test.astype("float32") / 255.0
     x_train = np.expand_dims(x_train, -1)
-    x_test = np.expand_dims(x_test, -1)
     
     model = Sequential([
         Conv2D(32, (3, 3), activation="relu", input_shape=(28, 28, 1)),
@@ -124,149 +78,51 @@ def load_or_train_mnist_model():
         Dense(10, activation="softmax")
     ])
     
-    model.compile(
-        optimizer="adam",
-        loss="sparse_categorical_crossentropy",
-        metrics=["accuracy"]
-    )
-    
+    model.compile(optimizer="adam", loss="sparse_categorical_crossentropy", metrics=["accuracy"])
     model.fit(x_train, y_train, epochs=5, batch_size=32, validation_split=0.1, verbose=0)
     model.save(model_path)
-    
     return model
 
 
-def preprocess_image(image, is_mnist=False):
-    """Preprocesar la imagen para la predicción."""
+def preprocess_img(image, invert=True):
     img = image.convert("L")
     img = img.resize((28, 28))
-    img_array = np.array(img) / 255.0
-    
-    if not is_mnist:
-        img_array = 1.0 - img_array
-    
-    img_array = np.expand_dims(img_array, axis=0)
-    img_array = np.expand_dims(img_array, axis=-1)
-    
-    return img_array
+    arr = np.array(img) / 255.0
+    if invert:
+        arr = 1.0 - arr
+    arr = np.expand_dims(arr, axis=(0, -1))
+    return arr
 
 
-with tab1:
-    st.header("Clasificación de Ropa")
-    st.write("Carga una imagen de una prenda y pulsa Predecir.")
-    
-    uploaded_file_fashion = st.file_uploader(
-        "Selecciona una imagen de ropa",
-        type=["png", "jpg", "jpeg", "bmp"],
-        key="fashion"
-    )
-    
-    if uploaded_file_fashion is not None:
-        image = Image.open(uploaded_file_fashion)
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.subheader("Imagen cargada")
-            st.image(image, width=300)
-            
-            predict_btn_fashion = st.button("Predecir", key="predict_fashion")
-        
-        with col2:
-            st.subheader("Resultado")
-            
-            if predict_btn_fashion:
-                with st.spinner("Cargando modelo y clasificando..."):
-                    try:
-                        model = load_or_train_fashion_model()
-                        processed_image = preprocess_image(image, is_mnist=False)
-                        
-                        probabilities = model.predict(processed_image, verbose=0)[0]
-                        predicted_index = int(np.argmax(probabilities))
-                        
-                        ranked_predictions = sorted(
-                            [
-                                {
-                                    "indice": class_index,
-                                    "clase": FASHION_CLASS_NAMES[class_index],
-                                    "probabilidad": float(probability),
-                                }
-                                for class_index, probability in enumerate(probabilities)
-                            ],
-                            key=lambda item: item["probabilidad"],
-                            reverse=True,
-                        )
-                        
-                        prediction = {
-                            "clase_predicha": FASHION_CLASS_NAMES[predicted_index],
-                            "probabilidad": float(probabilities[predicted_index]),
-                            "top_3": ranked_predictions[:3],
-                        }
-                        
-                        st.success(f"**Clase predicha:** {prediction['clase_predicha']}")
-                        st.info(f"**Confianza:** {prediction['probabilidad'] * 100:.2f}%")
-                        
-                        st.subheader("Top 3 probabilidades")
-                        for i, item in enumerate(prediction["top_3"]):
-                            st.progress(item["probabilidad"], text=f"{i+1}. {item['clase']} - {item['probabilidad'] * 100:.2f}%")
-                    except Exception as e:
-                        st.error(f"Error al clasificar: {e}")
+option = st.radio("¿Qué quieres clasificar?", ["👗 Ropa (Fashion MNIST)", "🔢 Números (MNIST)"])
 
-with tab2:
-    st.header("Clasificación de Números")
-    st.write("Carga una imagen de un número (0-9) y pulsa Predecir.")
+uploaded_file = st.file_uploader("Sube tu imagen", type=["png", "jpg", "jpeg", "bmp"])
+
+if uploaded_file is not None:
+    image = Image.open(uploaded_file)
+    st.image(image, caption="Imagen cargada", width=200)
     
-    uploaded_file_mnist = st.file_uploader(
-        "Selecciona una imagen de un número",
-        type=["png", "jpg", "jpeg", "bmp"],
-        key="mnist"
-    )
-    
-    if uploaded_file_mnist is not None:
-        image = Image.open(uploaded_file_mnist)
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.subheader("Imagen cargada")
-            st.image(image, width=300)
-            
-            predict_btn_mnist = st.button("Predecir", key="predict_mnist")
-        
-        with col2:
-            st.subheader("Resultado")
-            
-            if predict_btn_mnist:
-                with st.spinner("Cargando modelo y clasificando..."):
-                    try:
-                        model = load_or_train_mnist_model()
-                        processed_image = preprocess_image(image, is_mnist=True)
-                        
-                        probabilities = model.predict(processed_image, verbose=0)[0]
-                        predicted_index = int(np.argmax(probabilities))
-                        
-                        ranked_predictions = sorted(
-                            [
-                                {
-                                    "indice": class_index,
-                                    "clase": MNIST_CLASS_NAMES[class_index],
-                                    "probabilidad": float(probability),
-                                }
-                                for class_index, probability in enumerate(probabilities)
-                            ],
-                            key=lambda item: item["probabilidad"],
-                            reverse=True,
-                        )
-                        
-                        prediction = {
-                            "clase_predicha": MNIST_CLASS_NAMES[predicted_index],
-                            "probabilidad": float(probabilities[predicted_index]),
-                            "top_3": ranked_predictions[:3],
-                        }
-                        
-                        st.success(f"**Número predicho:** {prediction['clase_predicha']}")
-                        st.info(f"**Confianza:** {prediction['probabilidad'] * 100:.2f}%")
-                        
-                        st.subheader("Top 3 probabilidades")
-                        for i, item in enumerate(prediction["top_3"]):
-                            st.progress(item["probabilidad"], text=f"{i+1}. {item['clase']} - {item['probabilidad'] * 100:.2f}%")
-                    except Exception as e:
-                        st.error(f"Error al clasificar: {e}")
+    if st.button("Predecir"):
+        with st.spinner("Clasificando..."):
+            try:
+                if "Ropa" in option:
+                    model = get_fashion_model()
+                    class_names = FASHION_CLASS_NAMES
+                    img_arr = preprocess_img(image, invert=True)
+                else:
+                    model = get_mnist_model()
+                    class_names = MNIST_CLASS_NAMES
+                    img_arr = preprocess_img(image, invert=False)
+                
+                probs = model.predict(img_arr, verbose=0)[0]
+                pred_idx = int(np.argmax(probs))
+                
+                st.success(f"**Resultado:** {class_names[pred_idx]}")
+                st.info(f"**Confianza:** {probs[pred_idx] * 100:.2f}%")
+                
+                st.subheader("Top 3")
+                top = sorted(enumerate(probs), key=lambda x: x[1], reverse=True)[:3]
+                for i, (idx, p) in enumerate(top):
+                    st.write(f"{i+1}. {class_names[idx]}: {p*100:.2f}%")
+            except Exception as e:
+                st.error(f"Error: {e}")

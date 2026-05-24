@@ -2,6 +2,10 @@ import streamlit as st
 import numpy as np
 from PIL import Image
 from pathlib import Path
+from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
+from tensorflow.keras.datasets import fashion_mnist, mnist
 
 st.set_page_config(page_title="Clasificador Inteligente", page_icon="👗")
 
@@ -23,53 +27,35 @@ FASHION_CLASS_NAMES = [
 MNIST_CLASS_NAMES = [str(i) for i in range(10)]
 
 
-@st.cache_resource
+@st.cache_resource(show_spinner="Cargando/Entrenando modelos...")
 def get_models():
-    from tensorflow.keras.models import Sequential, load_model
-    from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
-    from tensorflow.keras.datasets import fashion_mnist, mnist
+    fashion_path = Path("fashion_model.joblib")
+    mnist_path = Path("mnist_model.joblib")
     
-    fashion_path = Path("fashion_model.keras")
-    mnist_path = Path("mnist_model.keras")
-    
-    if fashion_path.exists() and mnist_path.exists():
-        return load_model(fashion_path), load_model(mnist_path)
+    try:
+        import joblib
+        if fashion_path.exists() and mnist_path.exists():
+            return joblib.load(fashion_path), joblib.load(mnist_path)
+    except:
+        pass
     
     (x_train_f, y_train_f), (_, _) = fashion_mnist.load_data()
-    x_train_f = x_train_f.astype("float32") / 255.0
-    x_train_f = np.expand_dims(x_train_f, -1)
+    X_train_f_flat = x_train_f.reshape(x_train_f.shape[0], -1)
     
-    fashion_model = Sequential([
-        Conv2D(32, (3, 3), activation="relu", input_shape=(28, 28, 1)),
-        MaxPooling2D((2, 2)),
-        Conv2D(64, (3, 3), activation="relu"),
-        MaxPooling2D((2, 2)),
-        Flatten(),
-        Dense(128, activation="relu"),
-        Dropout(0.3),
-        Dense(10, activation="softmax")
+    fashion_model = Pipeline([
+        ("scaler", StandardScaler()),
+        ("logreg", LogisticRegression(max_iter=50, multi_class="multinomial", solver="saga", n_jobs=-1, random_state=42))
     ])
-    fashion_model.compile(optimizer="adam", loss="sparse_categorical_crossentropy", metrics=["accuracy"])
-    fashion_model.fit(x_train_f, y_train_f, epochs=3, batch_size=64, verbose=0)
-    fashion_model.save(fashion_path)
+    fashion_model.fit(X_train_f_flat, y_train_f)
     
     (x_train_m, y_train_m), (_, _) = mnist.load_data()
-    x_train_m = x_train_m.astype("float32") / 255.0
-    x_train_m = np.expand_dims(x_train_m, -1)
+    X_train_m_flat = x_train_m.reshape(x_train_m.shape[0], -1)
     
-    mnist_model = Sequential([
-        Conv2D(32, (3, 3), activation="relu", input_shape=(28, 28, 1)),
-        MaxPooling2D((2, 2)),
-        Conv2D(64, (3, 3), activation="relu"),
-        MaxPooling2D((2, 2)),
-        Flatten(),
-        Dense(128, activation="relu"),
-        Dropout(0.3),
-        Dense(10, activation="softmax")
+    mnist_model = Pipeline([
+        ("scaler", StandardScaler()),
+        ("logreg", LogisticRegression(max_iter=50, multi_class="multinomial", solver="saga", n_jobs=-1, random_state=42))
     ])
-    mnist_model.compile(optimizer="adam", loss="sparse_categorical_crossentropy", metrics=["accuracy"])
-    mnist_model.fit(x_train_m, y_train_m, epochs=3, batch_size=64, verbose=0)
-    mnist_model.save(mnist_path)
+    mnist_model.fit(X_train_m_flat, y_train_m)
     
     return fashion_model, mnist_model
 
@@ -80,7 +66,7 @@ def preprocess_img(image, invert=True):
     arr = np.array(img) / 255.0
     if invert:
         arr = 1.0 - arr
-    arr = np.expand_dims(arr, axis=(0, -1))
+    arr = arr.flatten().reshape(1, -1)
     return arr
 
 
@@ -105,14 +91,14 @@ if uploaded_file is not None:
                     class_names = MNIST_CLASS_NAMES
                     img_arr = preprocess_img(image, invert=False)
                 
-                probs = model.predict(img_arr, verbose=0)[0]
-                pred_idx = int(np.argmax(probs))
+                pred_idx = int(model.predict(img_arr)[0])
+                proba = model.predict_proba(img_arr)[0]
                 
                 st.success(f"**Resultado:** {class_names[pred_idx]}")
-                st.info(f"**Confianza:** {probs[pred_idx] * 100:.2f}%")
+                st.info(f"**Confianza:** {proba[pred_idx] * 100:.2f}%")
                 
                 st.subheader("Top 3")
-                top = sorted(enumerate(probs), key=lambda x: x[1], reverse=True)[:3]
+                top = sorted(enumerate(proba), key=lambda x: x[1], reverse=True)[:3]
                 for i, (idx, p) in enumerate(top):
                     st.write(f"{i+1}. {class_names[idx]}: {p*100:.2f}%")
             except Exception as e:

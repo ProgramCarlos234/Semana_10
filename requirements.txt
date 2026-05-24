@@ -1,4 +1,5 @@
-tensorflow-cpu
 numpy>=1.23
 pillow>=10.0
 streamlit>=1.28
+scikit-learn>=1.3
+tensorflow

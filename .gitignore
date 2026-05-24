@@ -1,0 +1,17 @@
+# Se ignoran los artefactos de caché de Python.
+__pycache__/
+
+# Se ignoran los archivos compilados de Python.
+*.pyc
+
+# Se ignoran los entornos virtuales locales.
+.venv/
+venv/
+
+# Se ignoran los artefactos de sistema de TensorFlow y Keras generados en ejecución.
+*.keras
+*.h5
+
+# Se ignoran archivos temporales del sistema operativo.
+Thumbs.db
+.DS_Store

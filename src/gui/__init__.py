@@ -1,0 +1,1 @@
+"""Subpaquete para la interfaz gráfica del proyecto."""

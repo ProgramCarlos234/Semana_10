@@ -1,0 +1,27 @@
+{
+  "imagen": "D:\\PERSONAL\\PAUL UC\\UC_2026\\CONSTRUCCION DE SOFTWARE\\semana 11\\fashion\\data\\sample_user_images\\imagen_ejemplo_dataset.png",
+  "clase_real": "Botín",
+  "indice_real": 9,
+  "prediccion": {
+    "clase_predicha": "Botín",
+    "indice_predicho": 9,
+    "probabilidad": 0.99997878074646,
+    "top_3": [
+      {
+        "indice": 9,
+        "clase": "Botín",
+        "probabilidad": 0.99997878074646
+      },
+      {
+        "indice": 7,
+        "clase": "Zapatilla deportiva",
+        "probabilidad": 2.1029551135143265e-05
+      },
+      {
+        "indice": 5,
+        "clase": "Sandalia",
+        "probabilidad": 2.14803819176268e-07
+      }
+    ]
+  }
+}

@@ -1,0 +1,10 @@
+tensorflow>=2.14
+numpy>=1.24
+matplotlib>=3.7
+pillow>=10.0
+scikit-learn>=1.3
+pandas>=2.0
+opencv-python>=4.9
+streamlit>=1.30
+# Dependencia opcional para segmentación de fondo más robusta en imágenes reales:
+# rembg>=2.0

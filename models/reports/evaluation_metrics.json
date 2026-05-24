@@ -1,0 +1,80 @@
+{
+  "loss": 0.2780240476131439,
+  "accuracy": 0.9083999991416931,
+  "total_muestras_test": 10000,
+  "classification_report": {
+    "Camiseta o top": {
+      "precision": 0.8707692307692307,
+      "recall": 0.849,
+      "f1-score": 0.859746835443038,
+      "support": 1000.0
+    },
+    "Pantalón": {
+      "precision": 1.0,
+      "recall": 0.968,
+      "f1-score": 0.983739837398374,
+      "support": 1000.0
+    },
+    "Jersey": {
+      "precision": 0.8082437275985663,
+      "recall": 0.902,
+      "f1-score": 0.8525519848771267,
+      "support": 1000.0
+    },
+    "Vestido": {
+      "precision": 0.9126984126984127,
+      "recall": 0.92,
+      "f1-score": 0.9163346613545816,
+      "support": 1000.0
+    },
+    "Abrigo": {
+      "precision": 0.8918918918918919,
+      "recall": 0.825,
+      "f1-score": 0.8571428571428571,
+      "support": 1000.0
+    },
+    "Sandalia": {
+      "precision": 0.9888211382113821,
+      "recall": 0.973,
+      "f1-score": 0.9808467741935484,
+      "support": 1000.0
+    },
+    "Camisa": {
+      "precision": 0.7412587412587412,
+      "recall": 0.742,
+      "f1-score": 0.7416291854072964,
+      "support": 1000.0
+    },
+    "Zapatilla deportiva": {
+      "precision": 0.9268978444236177,
+      "recall": 0.989,
+      "f1-score": 0.9569424286405418,
+      "support": 1000.0
+    },
+    "Bolso": {
+      "precision": 0.9741293532338309,
+      "recall": 0.979,
+      "f1-score": 0.9765586034912718,
+      "support": 1000.0
+    },
+    "Botín": {
+      "precision": 0.9852786540483701,
+      "recall": 0.937,
+      "f1-score": 0.9605330599692465,
+      "support": 1000.0
+    },
+    "accuracy": 0.9084,
+    "macro avg": {
+      "precision": 0.9099988994134044,
+      "recall": 0.9084,
+      "f1-score": 0.9086026227917883,
+      "support": 10000.0
+    },
+    "weighted avg": {
+      "precision": 0.9099988994134044,
+      "recall": 0.9084,
+      "f1-score": 0.9086026227917883,
+      "support": 10000.0
+    }
+  }
+}

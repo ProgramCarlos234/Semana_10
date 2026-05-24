@@ -1,0 +1,1 @@
+"""Paquete principal del proyecto de clasificación de prendas."""

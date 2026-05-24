@@ -2,12 +2,10 @@ import streamlit as st
 import numpy as np
 from PIL import Image
 from pathlib import Path
-from tensorflow.keras.models import load_model
-from tensorflow.keras.datasets import mnist
-
-from config.settings import CLASS_NAMES, MODEL_PATH
-from src.predictor import load_class_names_for_model
-from src.preprocessing import preprocess_user_image
+from tensorflow.keras.models import Sequential, load_model
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
+from tensorflow.keras.datasets import fashion_mnist, mnist
+from tensorflow.keras.utils import to_categorical
 
 st.set_page_config(
     page_title="Clasificador Inteligente",
@@ -50,6 +48,109 @@ st.title("🧠 Sistema Inteligente de Clasificación")
 
 tab1, tab2 = st.tabs(["👗 Ropa (Fashion MNIST)", "🔢 Números (MNIST)"])
 
+FASHION_CLASS_NAMES = [
+    "Camiseta/top",
+    "Pantalón",
+    "Jersey",
+    "Vestido",
+    "Abrigo",
+    "Sandalia",
+    "Camisa",
+    "Zapatilla deportiva",
+    "Short",
+    "Botín"
+]
+
+MNIST_CLASS_NAMES = [str(i) for i in range(10)]
+
+
+def load_or_train_fashion_model():
+    """Cargar o entrenar modelo de Fashion MNIST."""
+    model_path = Path("fashion_model.keras")
+    
+    if model_path.exists():
+        return load_model(model_path)
+    
+    (x_train, y_train), (x_test, y_test) = fashion_mnist.load_data()
+    x_train = x_train.astype("float32") / 255.0
+    x_test = x_test.astype("float32") / 255.0
+    x_train = np.expand_dims(x_train, -1)
+    x_test = np.expand_dims(x_test, -1)
+    
+    model = Sequential([
+        Conv2D(32, (3, 3), activation="relu", input_shape=(28, 28, 1)),
+        MaxPooling2D((2, 2)),
+        Conv2D(64, (3, 3), activation="relu"),
+        MaxPooling2D((2, 2)),
+        Flatten(),
+        Dense(128, activation="relu"),
+        Dropout(0.3),
+        Dense(10, activation="softmax")
+    ])
+    
+    model.compile(
+        optimizer="adam",
+        loss="sparse_categorical_crossentropy",
+        metrics=["accuracy"]
+    )
+    
+    model.fit(x_train, y_train, epochs=5, batch_size=32, validation_split=0.1, verbose=0)
+    model.save(model_path)
+    
+    return model
+
+
+def load_or_train_mnist_model():
+    """Cargar o entrenar modelo de MNIST."""
+    model_path = Path("mnist_model.keras")
+    
+    if model_path.exists():
+        return load_model(model_path)
+    
+    (x_train, y_train), (x_test, y_test) = mnist.load_data()
+    x_train = x_train.astype("float32") / 255.0
+    x_test = x_test.astype("float32") / 255.0
+    x_train = np.expand_dims(x_train, -1)
+    x_test = np.expand_dims(x_test, -1)
+    
+    model = Sequential([
+        Conv2D(32, (3, 3), activation="relu", input_shape=(28, 28, 1)),
+        MaxPooling2D((2, 2)),
+        Conv2D(64, (3, 3), activation="relu"),
+        MaxPooling2D((2, 2)),
+        Flatten(),
+        Dense(128, activation="relu"),
+        Dropout(0.3),
+        Dense(10, activation="softmax")
+    ])
+    
+    model.compile(
+        optimizer="adam",
+        loss="sparse_categorical_crossentropy",
+        metrics=["accuracy"]
+    )
+    
+    model.fit(x_train, y_train, epochs=5, batch_size=32, validation_split=0.1, verbose=0)
+    model.save(model_path)
+    
+    return model
+
+
+def preprocess_image(image, is_mnist=False):
+    """Preprocesar la imagen para la predicción."""
+    img = image.convert("L")
+    img = img.resize((28, 28))
+    img_array = np.array(img) / 255.0
+    
+    if not is_mnist:
+        img_array = 1.0 - img_array
+    
+    img_array = np.expand_dims(img_array, axis=0)
+    img_array = np.expand_dims(img_array, axis=-1)
+    
+    return img_array
+
+
 with tab1:
     st.header("Clasificación de Ropa")
     st.write("Carga una imagen de una prenda y pulsa Predecir.")
@@ -73,18 +174,11 @@ with tab1:
         with col2:
             st.subheader("Resultado")
             
-            if not MODEL_PATH.exists():
-                st.error("No hay modelos entrenados. Por favor ejecuta `python main.py train` primero.")
-            elif predict_btn_fashion:
-                with st.spinner("Clasificando la imagen..."):
+            if predict_btn_fashion:
+                with st.spinner("Cargando modelo y clasificando..."):
                     try:
-                        model = load_model(MODEL_PATH)
-                        class_names = load_class_names_for_model(MODEL_PATH)
-                        
-                        temp_path = Path("temp_image.png")
-                        image.save(temp_path)
-                        processed_image = preprocess_user_image(temp_path)
-                        temp_path.unlink(missing_ok=True)
+                        model = load_or_train_fashion_model()
+                        processed_image = preprocess_image(image, is_mnist=False)
                         
                         probabilities = model.predict(processed_image, verbose=0)[0]
                         predicted_index = int(np.argmax(probabilities))
@@ -93,7 +187,7 @@ with tab1:
                             [
                                 {
                                     "indice": class_index,
-                                    "clase": class_names[class_index],
+                                    "clase": FASHION_CLASS_NAMES[class_index],
                                     "probabilidad": float(probability),
                                 }
                                 for class_index, probability in enumerate(probabilities)
@@ -103,7 +197,7 @@ with tab1:
                         )
                         
                         prediction = {
-                            "clase_predicha": class_names[predicted_index],
+                            "clase_predicha": FASHION_CLASS_NAMES[predicted_index],
                             "probabilidad": float(probabilities[predicted_index]),
                             "top_3": ranked_predictions[:3],
                         }
@@ -141,60 +235,19 @@ with tab2:
             st.subheader("Resultado")
             
             if predict_btn_mnist:
-                with st.spinner("Clasificando el número..."):
+                with st.spinner("Cargando modelo y clasificando..."):
                     try:
-                        mnist_model_path = Path("models/trained/mnist_cnn.keras")
+                        model = load_or_train_mnist_model()
+                        processed_image = preprocess_image(image, is_mnist=True)
                         
-                        if not mnist_model_path.exists():
-                            st.info("Entrenando modelo MNIST por primera vez...")
-                            (x_train, y_train), (x_test, y_test) = mnist.load_data()
-                            x_train = x_train.astype("float32") / 255.0
-                            x_test = x_test.astype("float32") / 255.0
-                            x_train = np.expand_dims(x_train, -1)
-                            x_test = np.expand_dims(x_test, -1)
-                            
-                            from tensorflow.keras import Sequential
-                            from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
-                            
-                            model = Sequential([
-                                Conv2D(32, (3, 3), activation="relu", input_shape=(28, 28, 1)),
-                                MaxPooling2D((2, 2)),
-                                Conv2D(64, (3, 3), activation="relu"),
-                                MaxPooling2D((2, 2)),
-                                Flatten(),
-                                Dense(128, activation="relu"),
-                                Dropout(0.3),
-                                Dense(10, activation="softmax")
-                            ])
-                            
-                            model.compile(
-                                optimizer="adam",
-                                loss="sparse_categorical_crossentropy",
-                                metrics=["accuracy"]
-                            )
-                            
-                            model.fit(x_train, y_train, epochs=5, batch_size=32, validation_split=0.1)
-                            
-                            mnist_model_path.parent.mkdir(parents=True, exist_ok=True)
-                            model.save(mnist_model_path)
-                        else:
-                            model = load_model(mnist_model_path)
-                        
-                        img = image.convert("L")
-                        img = img.resize((28, 28))
-                        img_array = np.array(img) / 255.0
-                        img_array = np.expand_dims(img_array, axis=0)
-                        img_array = np.expand_dims(img_array, axis=-1)
-                        
-                        probabilities = model.predict(img_array, verbose=0)[0]
+                        probabilities = model.predict(processed_image, verbose=0)[0]
                         predicted_index = int(np.argmax(probabilities))
-                        mnist_class_names = [str(i) for i in range(10)]
                         
                         ranked_predictions = sorted(
                             [
                                 {
                                     "indice": class_index,
-                                    "clase": mnist_class_names[class_index],
+                                    "clase": MNIST_CLASS_NAMES[class_index],
                                     "probabilidad": float(probability),
                                 }
                                 for class_index, probability in enumerate(probabilities)
@@ -204,7 +257,7 @@ with tab2:
                         )
                         
                         prediction = {
-                            "clase_predicha": mnist_class_names[predicted_index],
+                            "clase_predicha": MNIST_CLASS_NAMES[predicted_index],
                             "probabilidad": float(probabilities[predicted_index]),
                             "top_3": ranked_predictions[:3],
                         }

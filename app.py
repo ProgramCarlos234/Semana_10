@@ -77,8 +77,10 @@ def preprocess_img(image, invert=True):
     img = image.convert("L")
     img = img.resize((28, 28))
     arr = np.array(img) / 255.0
+    
     if invert:
         arr = 1.0 - arr
+    
     arr = np.expand_dims(arr, axis=(0, -1))
     return arr
 
@@ -102,7 +104,7 @@ if uploaded_file is not None:
                 else:
                     model = mnist_model
                     class_names = MNIST_CLASS_NAMES
-                    img_arr = preprocess_img(image, invert=False)
+                    img_arr = preprocess_img(image, invert=True)
                 
                 probs = model.predict(img_arr, verbose=0)[0]
                 pred_idx = int(np.argmax(probs))
